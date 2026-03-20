@@ -1,5 +1,10 @@
 // ==UserScript==
 // @name         Claude.ai-中文汉化
+// @namespace    https://github.com/jyking/claude2cn/
+// @homepageURL  https://github.com/jyking/claude2cn/
+// @updateURL    https://github.com/jyking/claude2cn/raw/main/claude2cn.user.js
+// @downloadURL  https://github.com/jyking/claude2cn/raw/main/claude2cn.user.js
+// @author       jyking
 // @version      1.5.1
 // @description  Claude.ai-中文汉化 ai翻译 10000行翻译 claude.ai
 // @match        https://claude.ai/*
