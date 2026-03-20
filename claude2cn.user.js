@@ -5,7 +5,7 @@
 // @updateURL    https://github.com/jyking/claude2cn/raw/main/claude2cn.user.js
 // @downloadURL  https://github.com/jyking/claude2cn/raw/main/claude2cn.user.js
 // @author       jyking
-// @version      1.5.1
+// @version      1.5.2
 // @description  Claude.ai-中文汉化 ai翻译 10000行翻译 claude.ai
 // @match        https://claude.ai/*
 // @grant        none
