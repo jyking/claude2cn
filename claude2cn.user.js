@@ -10,6 +10,7 @@
 // @match        https://claude.ai/*
 // @grant        none
 // @license MIT
+// @run-at      document-start
 // ==/UserScript==
 
 (function () {
