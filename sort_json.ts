@@ -23,7 +23,7 @@ function sortObjectKeys(obj: any): any {
 }
 
 const targetFile = "en2cn.json";
-const currentDir = "/Users/jyking/nextcloud/project/temp-my/claude.ai/i18n/fen/";
+const currentDir = "./";
 const absolutePath = join(currentDir, targetFile);
 
 try {
