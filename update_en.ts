@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 
 async function updateEn2Cn() {
   const enPath = './en.json';
