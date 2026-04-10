@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.5.6
+// @version      1.5.7
 // @description  Claude.ai-中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @match        https://claude.ai/*
 // @grant        none
@@ -52,6 +52,9 @@
     let countdownTimer = null;
     let isHovered = false;
     let panel = null;
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+    let savedPosition = { left: null, top: null, isRight: false }; // 保存实际位置和对齐方式
 
     let usageData = {
       fiveHour: { utilization: 0, resets_at: null },
@@ -131,8 +134,8 @@
       panel.id = "claude-usage-panel-bottom";
       Object.assign(panel.style, {
         position: "fixed",
-        bottom: "80px",
-        left: "8px",
+        top: "8px",
+        right: "8px",
         zIndex: "1000",
         background: "rgb(254, 252, 245)",
         border: "1px solid rgb(240, 235, 225)",
@@ -144,7 +147,7 @@
         minWidth: "56px",
         userSelect: "none",
         boxShadow: "none",
-        cursor: "pointer",
+        cursor: "move",
         transition: "all 0.2s ease",
       });
       return panel;
@@ -246,8 +249,37 @@
         ? "rgba(200, 195, 185, 0.6)"
         : "rgba(80, 75, 65, 0.6)";
 
+      // 判断面板是否靠近右侧
+      const rect = panel.getBoundingClientRect();
+      const isNearRight = savedPosition.isRight !== null ? savedPosition.isRight : (rect.left > window.innerWidth / 2);
+
+      // 使用保存的位置或当前位置
+      const currentLeft = savedPosition.left !== null ? savedPosition.left : rect.left;
+      const currentTop = savedPosition.top !== null ? savedPosition.top : rect.top;
+
       if (isHovered) {
-        panel.style.minWidth = "180px";
+        const expandedWidth = 180;
+        const collapsedWidth = 56;
+
+        panel.style.top = currentTop + "px";
+        panel.style.bottom = "auto";
+
+        if (isNearRight) {
+          // 靠右时向左展开，保持右边缘不变
+          // currentLeft 是左边缘，右边缘 = currentLeft + collapsedWidth
+          const rightEdge = currentLeft + collapsedWidth;
+          const rightPos = window.innerWidth - rightEdge;
+          panel.style.right = rightPos + "px";
+          panel.style.left = "auto";
+        } else {
+          // 靠左时向右展开，保持左边缘不变
+          panel.style.left = currentLeft + "px";
+          panel.style.right = "auto";
+        }
+
+        panel.style.width = expandedWidth + "px";
+        panel.style.minWidth = expandedWidth + "px";
+
         panel.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="font-size:11px;font-weight:600;opacity:0.8;text-align:center;border-bottom:1px solid ${textMuted};padding-bottom:6px;">Claude 用量监控</div>
@@ -280,7 +312,27 @@
         </div>
       `;
       } else {
-        panel.style.minWidth = "56px";
+        const collapsedWidth = 56;
+
+        panel.style.top = currentTop + "px";
+        panel.style.bottom = "auto";
+
+        if (isNearRight) {
+          // 靠右时保持右对齐收起
+          // currentLeft 是左边缘，右边缘 = currentLeft + collapsedWidth
+          const rightEdge = currentLeft + collapsedWidth;
+          const rightPos = window.innerWidth - rightEdge;
+          panel.style.right = rightPos + "px";
+          panel.style.left = "auto";
+        } else {
+          // 靠左时保持左对齐收起
+          panel.style.left = currentLeft + "px";
+          panel.style.right = "auto";
+        }
+
+        panel.style.width = collapsedWidth + "px";
+        panel.style.minWidth = collapsedWidth + "px";
+
         panel.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
           <div style="text-align:center;">
@@ -386,22 +438,106 @@
       return hit;
     }
 
+    function enableDrag() {
+      if (!panel) return;
+
+      let startX, startY, startLeft, startTop;
+
+      panel.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        // 获取当前位置
+        const rect = panel.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop = rect.top;
+
+        panel.style.transition = "none";
+        panel.style.cursor = "grabbing";
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+
+        let newLeft = startLeft + deltaX;
+        let newTop = startTop + deltaY;
+
+        // 边界限制 - 使用收起时的宽度（56px）作为基准
+        const collapsedWidth = 56;
+        const maxLeft = window.innerWidth - collapsedWidth;
+        const maxTop = window.innerHeight - panel.offsetHeight;
+
+        newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+        newTop = Math.max(0, Math.min(newTop, maxTop));
+
+        panel.style.left = newLeft + "px";
+        panel.style.top = newTop + "px";
+        panel.style.right = "auto";
+        panel.style.bottom = "auto";
+      });
+
+      document.addEventListener("mouseup", () => {
+        if (isDragging) {
+          isDragging = false;
+          panel.style.transition = "all 0.2s ease";
+          panel.style.cursor = "move";
+
+          // 保存实际位置坐标和对齐方式
+          const rect = panel.getBoundingClientRect();
+          const isRight = rect.left > window.innerWidth / 2;
+
+          // 统一保存为收起状态（56px）时的左边缘位置
+          const collapsedWidth = 56;
+          let leftPos;
+
+          if (isRight) {
+            // 如果在右边，计算收起时的左边缘位置（保持右边缘不变）
+            const rightEdge = rect.right;
+            leftPos = rightEdge - collapsedWidth;
+          } else {
+            // 如果在左边，直接使用当前左边缘
+            leftPos = rect.left;
+          }
+
+          savedPosition.left = leftPos;
+          savedPosition.top = rect.top;
+          savedPosition.isRight = isRight;
+
+          // 保存到 localStorage
+          localStorage.setItem("claude-usage-position", JSON.stringify({
+            left: leftPos,
+            top: rect.top,
+            isRight: isRight
+          }));
+
+          // 重新渲染以调整展开方向
+          renderPanel();
+        }
+      });
+    }
+
     function init(options = {}) {
       if (document.getElementById("claude-usage-panel-bottom")) {
         console.warn("[Claude用量] 小部件已存在");
         return;
       }
 
-      // 支持自定义位置
-      const position = options.position || { bottom: "80px", left: "8px" };
-
       hookFetch();
       panel = createPanel();
 
-      if (position.bottom) panel.style.bottom = position.bottom;
-      if (position.left) panel.style.left = position.left;
-      if (position.top) panel.style.top = position.top;
-      if (position.right) panel.style.right = position.right;
+      // 支持自定义位置覆盖
+      if (options.position) {
+        const position = options.position;
+        if (position.bottom) panel.style.bottom = position.bottom;
+        if (position.left) panel.style.left = position.left;
+        if (position.top) panel.style.top = position.top;
+        if (position.right) panel.style.right = position.right;
+      }
 
       const initWhenReady = () => {
         if (!document.body) {
@@ -410,16 +546,54 @@
         }
 
         document.body.appendChild(panel);
+
+        // 恢复保存的位置（在添加到DOM后）
+        const savedPos = localStorage.getItem("claude-usage-position");
+        if (savedPos && !options.position) {
+          try {
+            const pos = JSON.parse(savedPos);
+            let left = parseFloat(pos.left);
+            let top = parseFloat(pos.top);
+            let isRight = pos.isRight !== undefined ? pos.isRight : false;
+
+            // 边界检查和修正
+            const maxLeft = window.innerWidth - 56; // 最小宽度
+            const maxTop = window.innerHeight - 100; // 最小高度
+
+            if (left > maxLeft) left = maxLeft;
+            if (top > maxTop) top = maxTop;
+            if (left < 0) left = 0;
+            if (top < 0) top = 0;
+
+            // 保存到内存变量
+            savedPosition.left = left;
+            savedPosition.top = top;
+            savedPosition.isRight = isRight;
+
+            panel.style.left = left + "px";
+            panel.style.top = top + "px";
+            panel.style.right = "auto";
+            panel.style.bottom = "auto";
+          } catch (e) {
+            console.warn("[Claude用量] 恢复位置失败", e);
+          }
+        }
+
         renderPanel();
+        enableDrag();
 
         panel.addEventListener("mouseenter", () => {
-          isHovered = true;
-          renderPanel();
+          if (!isDragging) {
+            isHovered = true;
+            renderPanel();
+          }
         });
 
         panel.addEventListener("mouseleave", () => {
-          isHovered = false;
-          renderPanel();
+          if (!isDragging) {
+            isHovered = false;
+            renderPanel();
+          }
         });
 
         discoverOrgId().then(() => {
