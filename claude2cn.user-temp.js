@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.5.6
+// @version      1.5.8
 // @description  Claude.ai-中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @match        https://claude.ai/*
 // @grant        none
@@ -104,8 +104,7 @@
       if (orgId) return true;
       const candidates = [
         "https://claude.ai/api/bootstrap",
-        "https://claude.ai/api/auth/me",
-        "https://claude.ai/api/organizations",
+        // "https://claude.ai/api/organizations",
       ];
       for (const url of candidates) {
         try {
