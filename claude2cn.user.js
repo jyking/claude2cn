@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.5.7
+// @version      1.5.6
 // @description  Claude.ai-中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @match        https://claude.ai/*
 // @grant        none
@@ -54,7 +54,7 @@
     let panel = null;
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
-    let savedPosition = { left: null, top: null, isRight: false }; // 保存实际位置和对齐方式
+    let savedPosition = { left: null, right: 8, top: 50, isRight: true }; // 默认右上角
 
     let usageData = {
       fiveHour: { utilization: 0, resets_at: null },
@@ -134,7 +134,7 @@
       panel.id = "claude-usage-panel-bottom";
       Object.assign(panel.style, {
         position: "fixed",
-        top: "8px",
+        top: "50px",
         right: "8px",
         zIndex: "1000",
         background: "rgb(254, 252, 245)",
@@ -251,25 +251,34 @@
 
       // 判断面板是否靠近右侧
       const rect = panel.getBoundingClientRect();
-      const isNearRight = savedPosition.isRight !== null ? savedPosition.isRight : (rect.left > window.innerWidth / 2);
+      const isNearRight =
+        savedPosition.isRight !== null
+          ? savedPosition.isRight
+          : rect.left > window.innerWidth / 2;
 
       // 使用保存的位置或当前位置
-      const currentLeft = savedPosition.left !== null ? savedPosition.left : rect.left;
-      const currentTop = savedPosition.top !== null ? savedPosition.top : rect.top;
+      let currentLeft, currentRight;
+      if (isNearRight) {
+        currentRight =
+          savedPosition.right !== null
+            ? savedPosition.right
+            : window.innerWidth - rect.right;
+      } else {
+        currentLeft =
+          savedPosition.left !== null ? savedPosition.left : rect.left;
+      }
+      const currentTop =
+        savedPosition.top !== null ? savedPosition.top : rect.top;
 
       if (isHovered) {
         const expandedWidth = 180;
-        const collapsedWidth = 56;
 
         panel.style.top = currentTop + "px";
         panel.style.bottom = "auto";
 
         if (isNearRight) {
           // 靠右时向左展开，保持右边缘不变
-          // currentLeft 是左边缘，右边缘 = currentLeft + collapsedWidth
-          const rightEdge = currentLeft + collapsedWidth;
-          const rightPos = window.innerWidth - rightEdge;
-          panel.style.right = rightPos + "px";
+          panel.style.right = currentRight + "px";
           panel.style.left = "auto";
         } else {
           // 靠左时向右展开，保持左边缘不变
@@ -319,10 +328,7 @@
 
         if (isNearRight) {
           // 靠右时保持右对齐收起
-          // currentLeft 是左边缘，右边缘 = currentLeft + collapsedWidth
-          const rightEdge = currentLeft + collapsedWidth;
-          const rightPos = window.innerWidth - rightEdge;
-          panel.style.right = rightPos + "px";
+          panel.style.right = currentRight + "px";
           panel.style.left = "auto";
         } else {
           // 靠左时保持左对齐收起
@@ -491,29 +497,29 @@
           const rect = panel.getBoundingClientRect();
           const isRight = rect.left > window.innerWidth / 2;
 
-          // 统一保存为收起状态（56px）时的左边缘位置
-          const collapsedWidth = 56;
-          let leftPos;
-
           if (isRight) {
-            // 如果在右边，计算收起时的左边缘位置（保持右边缘不变）
-            const rightEdge = rect.right;
-            leftPos = rightEdge - collapsedWidth;
+            // 在右边时保存距右边的距离
+            savedPosition.right = window.innerWidth - rect.right;
+            savedPosition.left = null;
           } else {
-            // 如果在左边，直接使用当前左边缘
-            leftPos = rect.left;
+            // 在左边时保存距左边的距离
+            savedPosition.left = rect.left;
+            savedPosition.right = null;
           }
 
-          savedPosition.left = leftPos;
           savedPosition.top = rect.top;
           savedPosition.isRight = isRight;
 
           // 保存到 localStorage
-          localStorage.setItem("claude-usage-position", JSON.stringify({
-            left: leftPos,
-            top: rect.top,
-            isRight: isRight
-          }));
+          localStorage.setItem(
+            "claude-usage-position",
+            JSON.stringify({
+              left: savedPosition.left,
+              right: savedPosition.right,
+              top: rect.top,
+              isRight: isRight,
+            }),
+          );
 
           // 重新渲染以调整展开方向
           renderPanel();
@@ -552,27 +558,44 @@
         if (savedPos && !options.position) {
           try {
             const pos = JSON.parse(savedPos);
-            let left = parseFloat(pos.left);
             let top = parseFloat(pos.top);
             let isRight = pos.isRight !== undefined ? pos.isRight : false;
 
             // 边界检查和修正
-            const maxLeft = window.innerWidth - 56; // 最小宽度
-            const maxTop = window.innerHeight - 100; // 最小高度
-
-            if (left > maxLeft) left = maxLeft;
+            const maxTop = window.innerHeight - 100;
             if (top > maxTop) top = maxTop;
-            if (left < 0) left = 0;
             if (top < 0) top = 0;
 
-            // 保存到内存变量
-            savedPosition.left = left;
             savedPosition.top = top;
             savedPosition.isRight = isRight;
 
-            panel.style.left = left + "px";
+            if (isRight && pos.right !== null && pos.right !== undefined) {
+              // 恢复右对齐位置
+              let right = parseFloat(pos.right);
+              const maxRight = window.innerWidth - 56;
+              if (right > maxRight) right = maxRight;
+              if (right < 0) right = 0;
+
+              savedPosition.right = right;
+              savedPosition.left = null;
+
+              panel.style.right = right + "px";
+              panel.style.left = "auto";
+            } else if (pos.left !== null && pos.left !== undefined) {
+              // 恢复左对齐位置
+              let left = parseFloat(pos.left);
+              const maxLeft = window.innerWidth - 56;
+              if (left > maxLeft) left = maxLeft;
+              if (left < 0) left = 0;
+
+              savedPosition.left = left;
+              savedPosition.right = null;
+
+              panel.style.left = left + "px";
+              panel.style.right = "auto";
+            }
+
             panel.style.top = top + "px";
-            panel.style.right = "auto";
             panel.style.bottom = "auto";
           } catch (e) {
             console.warn("[Claude用量] 恢复位置失败", e);
