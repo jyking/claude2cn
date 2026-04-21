@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         Claude.ai-中文汉化-用量显示
+// @name         Claude 中文汉化 用量显示 Claude.ai
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.5.9
-// @description  Claude.ai-中文汉化 ai翻译 10000行翻译, 剩余用量显示
+// @version      1.6.0
+// @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @match        https://claude.ai/*
 // @grant        none
 // @license      MIT
