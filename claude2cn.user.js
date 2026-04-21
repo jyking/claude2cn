@@ -677,6 +677,15 @@
 
   ClaudeUsageWidget.init();
 
+  // 修改全局衬线字体
+  const style = document.createElement('style');
+  style.textContent = `
+    :root {
+      --font-anthropic-serif: "Anthropic Serif", Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", "Source Hans Serif CN", "Songti SC", SimSun, serif !important;
+    }
+  `;
+  document.documentElement.appendChild(style);
+
   const TRANSLATIONS = {
     "0": "0",
     "1": "1",
