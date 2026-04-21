@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.5.8
+// @version      1.5.9
 // @description  Claude.ai-中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @match        https://claude.ai/*
 // @grant        none
@@ -15,6 +15,15 @@
 
 (function () {
   "use strict";
+
+  // 添加 CSS 变量
+  const style = document.createElement("style");
+  style.textContent = `
+    :root {
+      --font-anthropic-serif: "Anthropic Serif", Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", "Source Hans Serif CN", "Songti SC", SimSun, serif;
+    }
+  `;
+  document.head.appendChild(style);
 
   const originalFetch = window.fetch;
   window.fetch = async function (...args) {
