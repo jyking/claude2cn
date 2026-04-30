@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.6.1
+// @version      1.6.2
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
@@ -62,7 +62,7 @@
     let panel = null;
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
-    let savedPosition = { left: null, right: 8, top: 50, isRight: true }; // 默认右上角
+    let savedPosition = { left: null, right: 4, top: 50, isRight: true }; // 默认右上角
 
     let usageData = {
       fiveHour: { utilization: 0, resets_at: null },
@@ -137,21 +137,22 @@
     }
 
     function createPanel() {
+      const metrics = getPanelMetrics();
       panel = document.createElement("div");
       panel.id = "claude-usage-panel-bottom";
       Object.assign(panel.style, {
         position: "fixed",
         top: "50px",
-        right: "8px",
+        right: metrics.defaultRight + "px",
         zIndex: "1000",
         background: "rgb(254, 252, 245)",
         border: "1px solid rgb(240, 235, 225)",
-        borderRadius: "6px",
+        borderRadius: metrics.borderRadius,
         fontFamily: "system-ui, -apple-system, sans-serif",
         color: "rgb(80, 75, 65)",
-        padding: "8px 10px",
+        padding: metrics.padding,
         width: "auto",
-        minWidth: "56px",
+        minWidth: metrics.minWidth + "px",
         userSelect: "none",
         boxShadow: "none",
         cursor: "move",
@@ -218,6 +219,38 @@
       });
     }
 
+    function isMobileLayout() {
+      return window.innerWidth <= 768;
+    }
+
+    function getPanelMetrics() {
+      if (isMobileLayout()) {
+        return {
+          defaultRight: null,
+          collapsedWidth: 32,
+          expandedWidth: 32,
+          minWidth: 32,
+          padding: "3px 2px",
+          borderRadius: "4px",
+        };
+      }
+      return {
+        defaultRight: 8,
+        collapsedWidth: 56,
+        expandedWidth: 180,
+        minWidth: 56,
+        padding: "8px 10px",
+        borderRadius: "6px",
+      };
+    }
+
+    function getMobileAnchorPosition() {
+      return {
+        left: Math.round(window.innerWidth * 0.64),
+        top: 4,
+      };
+    }
+
     function renderPanel() {
       if (
         !document.body ||
@@ -251,10 +284,12 @@
       const isDark = document.documentElement.classList.contains("dark");
       const fhColor = isDark ? clrDark(fhPct) : clr(fhPct);
       const sdColor = isDark ? clrDark(sdPct) : clr(sdPct);
+      const isMobile = isMobileLayout();
 
       const textMuted = isDark
         ? "rgba(200, 195, 185, 0.6)"
         : "rgba(80, 75, 65, 0.6)";
+      const metrics = getPanelMetrics();
 
       // 判断面板是否靠近右侧
       const rect = panel.getBoundingClientRect();
@@ -277,11 +312,13 @@
       const currentTop =
         savedPosition.top !== null ? savedPosition.top : rect.top;
 
-      if (isHovered) {
-        const expandedWidth = 180;
+      if (!isMobile && isHovered) {
+        const expandedWidth = metrics.expandedWidth;
 
         panel.style.top = currentTop + "px";
         panel.style.bottom = "auto";
+        panel.style.padding = metrics.padding;
+        panel.style.borderRadius = metrics.borderRadius;
 
         if (isNearRight) {
           // 靠右时向左展开，保持右边缘不变
@@ -328,38 +365,47 @@
         </div>
       `;
       } else {
-        const collapsedWidth = 56;
-
-        panel.style.top = currentTop + "px";
-        panel.style.bottom = "auto";
-
-        if (isNearRight) {
-          // 靠右时保持右对齐收起
-          panel.style.right = currentRight + "px";
-          panel.style.left = "auto";
-        } else {
-          // 靠左时保持左对齐收起
-          panel.style.left = currentLeft + "px";
+        const collapsedWidth = metrics.collapsedWidth;
+        panel.style.padding = metrics.padding;
+        panel.style.borderRadius = metrics.borderRadius;
+        if (isMobile) {
+          const mobilePos = getMobileAnchorPosition();
+          panel.style.top = mobilePos.top + "px";
+          panel.style.left = mobilePos.left + "px";
           panel.style.right = "auto";
+          panel.style.bottom = "auto";
+        } else {
+          panel.style.top = currentTop + "px";
+          panel.style.bottom = "auto";
+
+          if (isNearRight) {
+            // 靠右时保持右对齐收起
+            panel.style.right = currentRight + "px";
+            panel.style.left = "auto";
+          } else {
+            // 靠左时保持左对齐收起
+            panel.style.left = currentLeft + "px";
+            panel.style.right = "auto";
+          }
         }
 
         panel.style.width = collapsedWidth + "px";
         panel.style.minWidth = collapsedWidth + "px";
 
         panel.innerHTML = `
-        <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
+        <div style="display:flex;flex-direction:column;gap:${isMobile ? 2 : 8}px;align-items:center;">
           <div style="text-align:center;">
-            <div style="font-size:8px;color:${textMuted};margin-bottom:2px;">5小时</div>
-            <div style="font-size:16px;font-weight:600;color:${fhColor};line-height:1.1;">${fhRemain}%</div>
-            <div id="fhcd" style="font-size:8px;color:${textMuted};margin-top:2px;">${cdText(fh.resets_at)}</div>
+            ${isMobile ? "" : `<div style="font-size:8px;color:${textMuted};margin-bottom:2px;">5小时</div>`}
+            <div style="font-size:${isMobile ? 11 : 16}px;font-weight:600;color:${fhColor};line-height:1.05;">${fhRemain}%</div>
+            ${isMobile ? "" : `<div id="fhcd" style="font-size:8px;color:${textMuted};margin-top:2px;">${cdText(fh.resets_at)}</div>`}
           </div>
 
-          <div style="width:30px;height:1px;background:${textMuted};opacity:0.3;"></div>
+          <div style="width:${isMobile ? 14 : 30}px;height:1px;background:${textMuted};opacity:0.3;"></div>
 
           <div style="text-align:center;">
-            <div style="font-size:8px;color:${textMuted};margin-bottom:2px;">7天</div>
-            <div style="font-size:16px;font-weight:600;color:${sdColor};line-height:1.1;">${sdRemain}%</div>
-            <div id="sdcd" style="font-size:8px;color:${textMuted};margin-top:2px;">${cdText(sd.resets_at)}</div>
+            ${isMobile ? "" : `<div style="font-size:8px;color:${textMuted};margin-bottom:2px;">7天</div>`}
+            <div style="font-size:${isMobile ? 11 : 16}px;font-weight:600;color:${sdColor};line-height:1.05;">${sdRemain}%</div>
+            ${isMobile ? "" : `<div id="sdcd" style="font-size:8px;color:${textMuted};margin-top:2px;">${cdText(sd.resets_at)}</div>`}
           </div>
         </div>
       `;
@@ -480,8 +526,8 @@
         let newLeft = startLeft + deltaX;
         let newTop = startTop + deltaY;
 
-        // 边界限制 - 使用收起时的宽度（56px）作为基准
-        const collapsedWidth = 56;
+        // 边界限制 - 使用当前布局的收起宽度作为基准
+        const collapsedWidth = getPanelMetrics().collapsedWidth;
         const maxLeft = window.innerWidth - collapsedWidth;
         const maxTop = window.innerHeight - panel.offsetHeight;
 
@@ -560,9 +606,21 @@
 
         document.body.appendChild(panel);
 
+        if (isMobileLayout() && !options.position) {
+          const mobilePos = getMobileAnchorPosition();
+          savedPosition.left = mobilePos.left;
+          savedPosition.right = null;
+          savedPosition.top = mobilePos.top;
+          savedPosition.isRight = false;
+          panel.style.left = mobilePos.left + "px";
+          panel.style.top = mobilePos.top + "px";
+          panel.style.right = "auto";
+          panel.style.bottom = "auto";
+        }
+
         // 恢复保存的位置（在添加到DOM后）
         const savedPos = localStorage.getItem("claude-usage-position");
-        if (savedPos && !options.position) {
+        if (savedPos && !options.position && !isMobileLayout()) {
           try {
             const pos = JSON.parse(savedPos);
             let top = parseFloat(pos.top);
@@ -579,7 +637,7 @@
             if (isRight && pos.right !== null && pos.right !== undefined) {
               // 恢复右对齐位置
               let right = parseFloat(pos.right);
-              const maxRight = window.innerWidth - 56;
+              const maxRight = window.innerWidth - getPanelMetrics().collapsedWidth;
               if (right > maxRight) right = maxRight;
               if (right < 0) right = 0;
 
@@ -591,7 +649,7 @@
             } else if (pos.left !== null && pos.left !== undefined) {
               // 恢复左对齐位置
               let left = parseFloat(pos.left);
-              const maxLeft = window.innerWidth - 56;
+              const maxLeft = window.innerWidth - getPanelMetrics().collapsedWidth;
               if (left > maxLeft) left = maxLeft;
               if (left < 0) left = 0;
 
