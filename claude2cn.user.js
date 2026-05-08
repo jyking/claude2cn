@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.6.2
+// @version      1.6.3
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
@@ -157,6 +157,7 @@
         boxShadow: "none",
         cursor: "move",
         transition: "all 0.2s ease",
+        touchAction: "none",
       });
       return panel;
     }
@@ -228,7 +229,7 @@
         return {
           defaultRight: null,
           collapsedWidth: 32,
-          expandedWidth: 32,
+          expandedWidth: Math.min(180, window.innerWidth - 16),
           minWidth: 32,
           padding: "3px 2px",
           borderRadius: "4px",
@@ -312,7 +313,7 @@
       const currentTop =
         savedPosition.top !== null ? savedPosition.top : rect.top;
 
-      if (!isMobile && isHovered) {
+      if (isHovered) {
         const expandedWidth = metrics.expandedWidth;
 
         panel.style.top = currentTop + "px";
@@ -322,11 +323,12 @@
 
         if (isNearRight) {
           // 靠右时向左展开，保持右边缘不变
-          panel.style.right = currentRight + "px";
+          panel.style.right = Math.max(0, currentRight) + "px";
           panel.style.left = "auto";
         } else {
           // 靠左时向右展开，保持左边缘不变
-          panel.style.left = currentLeft + "px";
+          const maxLeft = Math.max(0, window.innerWidth - expandedWidth);
+          panel.style.left = Math.max(0, Math.min(currentLeft, maxLeft)) + "px";
           panel.style.right = "auto";
         }
 
@@ -368,25 +370,18 @@
         const collapsedWidth = metrics.collapsedWidth;
         panel.style.padding = metrics.padding;
         panel.style.borderRadius = metrics.borderRadius;
-        if (isMobile) {
-          const mobilePos = getMobileAnchorPosition();
-          panel.style.top = mobilePos.top + "px";
-          panel.style.left = mobilePos.left + "px";
-          panel.style.right = "auto";
-          panel.style.bottom = "auto";
-        } else {
-          panel.style.top = currentTop + "px";
-          panel.style.bottom = "auto";
+        panel.style.top = currentTop + "px";
+        panel.style.bottom = "auto";
 
-          if (isNearRight) {
-            // 靠右时保持右对齐收起
-            panel.style.right = currentRight + "px";
-            panel.style.left = "auto";
-          } else {
-            // 靠左时保持左对齐收起
-            panel.style.left = currentLeft + "px";
-            panel.style.right = "auto";
-          }
+        if (isNearRight) {
+          // 靠右时保持右对齐收起
+          panel.style.right = Math.max(0, currentRight) + "px";
+          panel.style.left = "auto";
+        } else {
+          // 靠左时保持左对齐收起
+          const maxLeft = Math.max(0, window.innerWidth - collapsedWidth);
+          panel.style.left = Math.max(0, Math.min(currentLeft, maxLeft)) + "px";
+          panel.style.right = "auto";
         }
 
         panel.style.width = collapsedWidth + "px";
@@ -500,10 +495,12 @@
     function enableDrag() {
       if (!panel) return;
 
-      let startX, startY, startLeft, startTop;
+      let startX, startY, startLeft, startTop, pointerMoved;
 
-      panel.addEventListener("mousedown", (e) => {
+      panel.addEventListener("pointerdown", (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
         isDragging = true;
+        pointerMoved = false;
         startX = e.clientX;
         startY = e.clientY;
 
@@ -514,14 +511,19 @@
 
         panel.style.transition = "none";
         panel.style.cursor = "grabbing";
+        panel.setPointerCapture?.(e.pointerId);
       });
 
-      document.addEventListener("mousemove", (e) => {
+      document.addEventListener("pointermove", (e) => {
         if (!isDragging) return;
         e.preventDefault();
 
         const deltaX = e.clientX - startX;
         const deltaY = e.clientY - startY;
+        if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+          pointerMoved = true;
+          isHovered = false;
+        }
 
         let newLeft = startLeft + deltaX;
         let newTop = startTop + deltaY;
@@ -540,11 +542,12 @@
         panel.style.bottom = "auto";
       });
 
-      document.addEventListener("mouseup", () => {
+      document.addEventListener("pointerup", (e) => {
         if (isDragging) {
           isDragging = false;
           panel.style.transition = "all 0.2s ease";
           panel.style.cursor = "move";
+          panel.releasePointerCapture?.(e.pointerId);
 
           // 保存实际位置坐标和对齐方式
           const rect = panel.getBoundingClientRect();
@@ -574,9 +577,22 @@
             }),
           );
 
+          if (!pointerMoved && e.pointerType !== "mouse") {
+            isHovered = !isHovered;
+          }
+
           // 重新渲染以调整展开方向
           renderPanel();
         }
+      });
+
+      document.addEventListener("pointercancel", (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        panel.style.transition = "all 0.2s ease";
+        panel.style.cursor = "move";
+        panel.releasePointerCapture?.(e.pointerId);
+        renderPanel();
       });
     }
 
@@ -620,7 +636,7 @@
 
         // 恢复保存的位置（在添加到DOM后）
         const savedPos = localStorage.getItem("claude-usage-position");
-        if (savedPos && !options.position && !isMobileLayout()) {
+        if (savedPos && !options.position) {
           try {
             const pos = JSON.parse(savedPos);
             let top = parseFloat(pos.top);
