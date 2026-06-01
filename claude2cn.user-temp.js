@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.6.5
+// @version      1.6.6
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
