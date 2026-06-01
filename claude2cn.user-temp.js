@@ -750,5 +750,47 @@
 
   ClaudeUsageWidget.init();
 
+  // Design 页面 DOM 翻译（/design 路径字符串打包在 JS bundle 中，无 i18n fetch 可拦截）
+  const DESIGN_TRANSLATIONS = {};
+
+  if (location.pathname.startsWith("/design")) {
+    function translateNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const t = node.nodeValue && node.nodeValue.trim();
+        if (t && DESIGN_TRANSLATIONS[t]) {
+          node.nodeValue = node.nodeValue.replace(t, DESIGN_TRANSLATIONS[t]);
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+        let n;
+        while ((n = walker.nextNode())) {
+          const t = n.nodeValue && n.nodeValue.trim();
+          if (t && DESIGN_TRANSLATIONS[t]) {
+            n.nodeValue = n.nodeValue.replace(t, DESIGN_TRANSLATIONS[t]);
+          }
+        }
+      }
+    }
+
+    const designObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          translateNode(node);
+        }
+      }
+    });
+
+    function initDesignTranslator() {
+      translateNode(document.body);
+      designObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.body) {
+      initDesignTranslator();
+    } else {
+      document.addEventListener("DOMContentLoaded", initDesignTranslator);
+    }
+  }
+
   const TRANSLATIONS = {};
 })();
