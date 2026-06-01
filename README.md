@@ -1,40 +1,110 @@
-# Claude.ai 中文汉化脚本 (Claude2CN)
+# Claude2CN — Claude.ai 中文汉化
 
-本项目提供了一个用于 [Claude.ai](https://claude.ai/) 的界面中文汉化油猴脚本（Userscript），旨在提升中文用户的使用体验。
+> 为 Claude.ai 提供完整中文界面的油猴脚本，支持用量实时显示、暗色模式、移动端适配。
 
-## 🚀 功能特点
+[![GitHub](https://img.shields.io/badge/GitHub-jyking%2Fclaude2cn-blue?logo=github)](https://github.com/jyking/claude2cn)
+[![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-安装脚本-orange)](https://greasyfork.org/zh-CN/scripts/539526)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-- **深度汉化**：涵盖了 Claude.ai 界面上的大部分交互元素、提示信息、设置选项以及新上线的功能（如 Claude Code, Artifacts 等）。
-- **实时更新**：紧随 Claude.ai 的版本迭代，持续补充翻译内容。
-- **高性能**：采用轻量级实现，不影响页面加载和运行平衡。
-- **大量词汇**：内置 10,000+ 行翻译词条，确保汉化的完整性。
+---
 
-## 📦 安装方法
+## 功能特点
 
-1. **安装脚本管理器**：
-   在浏览器中安装一个用户脚本管理器扩展，推荐使用：
-   - [Tampermonkey (油猴)](https://www.tampermonkey.net/)
-   - [Violentmonkey (暴力猴)](https://violentmonkey.github.io/)
+- **完整汉化**：覆盖 Claude.ai 全界面，包括 Claude Code、Artifacts、**Claude Design**、Projects、Cowork 等所有功能模块，内置 10,000+ 行翻译词条。
+- **用量实时显示**：悬浮面板实时显示 5 小时与 7 日用量占比、套餐名称及重置倒计时。
+- **面板可拖动**：用量面板支持鼠标和触摸拖拽，位置自动记忆（桌面端 & iPad）。
+- **暗色模式适配**：随系统/页面主题自动切换面板配色。
+- **移动端适配**：响应式布局，手机浏览器下同样可正常使用。
+- **轻量高性能**：仅拦截 i18n 接口，不注入额外框架，不影响页面加载。
+- **持续更新**：紧跟 Claude.ai 版本迭代，新功能上线即补充翻译。
 
-2. **添加脚本**：
-   - 下载本项目中的 `claude2cn.user.js` 文件。
-   - 在脚本管理器中选择“添加新脚本”或“导入”，将 `claude2cn.user.js` 的内容粘贴进去或直接加载文件。
+---
 
-3. **刷新页面**：
-   访问 [Claude.ai](https://claude.ai/)，脚本将自动生效。
+## 安装方法
 
-## 🛠️ 项目结构
+### 第一步：安装脚本管理器
 
-- `claude2cn.user.js`: 核心油猴脚本，包含翻译引擎和已集成的翻译数据。
-- `en2cn.json`: 原始翻译映射文件（英文 -> 中文）。
-- `sort_json.ts`: 开发辅助工具，用于对 `en2cn.json` 中的键进行字母顺序排序，方便维护和比对。
+在浏览器中安装油猴（用户脚本管理器）扩展：
 
-## 🛠️ 维护工具
+| 扩展 | Chrome / Edge | Firefox | Safari |
+|------|--------------|---------|--------|
+| [Tampermonkey（油猴）](https://www.tampermonkey.net/) | ✅ | ✅ | ✅ |
+| [Violentmonkey（暴力猴）](https://violentmonkey.github.io/) | ✅ | ✅ | — |
 
-如果你想为项目贡献翻译或自行维护：
-- 使用 `sort_json.ts` 保持翻译文件的整洁。
-- 确保所有的翻译键值对应。
+### 第二步：安装脚本
 
-## 📄 许可证
+**方式 A — 通过 Greasy Fork 一键安装（推荐）**
 
-本项目采用 [MIT 许可证](LICENSE) 开源。
+点击下方链接，在 Greasy Fork 页面点击「安装此脚本」：
+
+👉 **[https://greasyfork.org/zh-CN/scripts/570390-claude-570390-claude-中文汉化-用量显示-claude-ai](https://greasyfork.org/zh-CN/scripts/570390-claude-%E4%B8%AD%E6%96%87%E6%B1%89%E5%8C%96-%E7%94%A8%E9%87%8F%E6%98%BE%E7%A4%BA-claude-ai)**
+
+**方式 B — 通过 GitHub Raw 安装**
+
+在脚本管理器中选择「从 URL 安装」，粘贴：
+
+```
+https://raw.githubusercontent.com/jyking/claude2cn/main/claude2cn.user.js
+```
+
+**方式 C — 手动安装**
+
+1. 下载本仓库中的 [`claude2cn.user.js`](https://github.com/jyking/claude2cn/raw/main/claude2cn.user.js) 文件。
+2. 在脚本管理器中选择「创建新脚本」，将文件内容粘贴进去保存。
+
+### 第三步：刷新页面
+
+访问 [claude.ai](https://claude.ai/)，脚本自动生效。如未生效，请硬刷新（Ctrl+Shift+R / Cmd+Shift+R）。
+
+---
+
+## 用量面板说明
+
+脚本会在页面右上角显示一个可拖动的用量面板：
+
+- **5h 用量**：当前 5 小时滚动窗口内的用量占比及重置倒计时
+- **7d 用量**：当前 7 日滚动窗口内的用量占比及重置倒计时
+- 颜色含义：🟢 < 60%　🟡 60–85%　🔴 > 85%
+- 面板可拖动到任意位置，刷新后位置保留
+
+---
+
+## 项目地址
+
+| 资源 | 链接 |
+|------|------|
+| GitHub 仓库 | [github.com/jyking/claude2cn](https://github.com/jyking/claude2cn) |
+| Greasy Fork（安装页） | [greasyfork.org/zh-CN/scripts/539526](https://greasyfork.org/zh-CN/scripts/539526) |
+| Fork 本仓库 | [github.com/jyking/claude2cn/fork](https://github.com/jyking/claude2cn/fork) |
+| 问题反馈 | [github.com/jyking/claude2cn/issues](https://github.com/jyking/claude2cn/issues) |
+
+---
+
+## 项目结构
+
+```
+claude2cn/
+├── claude2cn.user.js   # 核心油猴脚本（翻译引擎 + 用量面板 + 翻译数据）
+├── en2cn.json          # 翻译映射表（英文 → 中文），供维护用
+├── en.json             # 原始英文 key 列表
+├── sort_json.ts        # 翻译文件按字母排序工具
+├── split_json.ts       # 翻译文件拆分辅助工具
+└── update_en.ts        # 从 Claude.ai 更新英文 key 的工具
+```
+
+---
+
+## 贡献翻译
+
+欢迎 PR 补充或修正翻译！
+
+1. Fork 本仓库
+2. 在 `en2cn.json` 中添加或修改翻译键值对
+3. 运行 `bun run sort_json.ts` 保持文件有序
+4. 提交 PR，说明新增/修正的翻译内容
+
+---
+
+## 许可证
+
+本项目采用 [MIT 许可证](LICENSE) 开源，欢迎自由使用和二次开发。
