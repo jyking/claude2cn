@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.6.7
+// @version      1.6.8
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
@@ -754,6 +754,15 @@
   const DESIGN_TRANSLATIONS = {};
 
   if (location.pathname.startsWith("/design")) {
+    function translateAttrs(el) {
+      for (const attr of ["title", "placeholder", "aria-label"]) {
+        const val = el.getAttribute(attr);
+        if (val && DESIGN_TRANSLATIONS[val]) {
+          el.setAttribute(attr, DESIGN_TRANSLATIONS[val]);
+        }
+      }
+    }
+
     function translateNode(node) {
       if (node.nodeType === Node.TEXT_NODE) {
         const t = node.nodeValue && node.nodeValue.trim();
@@ -761,6 +770,7 @@
           node.nodeValue = node.nodeValue.replace(t, DESIGN_TRANSLATIONS[t]);
         }
       } else if (node.nodeType === Node.ELEMENT_NODE) {
+        translateAttrs(node);
         const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
         let n;
         while ((n = walker.nextNode())) {
@@ -769,20 +779,30 @@
             n.nodeValue = n.nodeValue.replace(t, DESIGN_TRANSLATIONS[t]);
           }
         }
+        node.querySelectorAll("[title],[placeholder],[aria-label]").forEach(translateAttrs);
       }
     }
 
     const designObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          translateNode(node);
+        if (m.type === "attributes" && m.target.nodeType === Node.ELEMENT_NODE) {
+          translateAttrs(m.target);
+        } else {
+          for (const node of m.addedNodes) {
+            translateNode(node);
+          }
         }
       }
     });
 
     function initDesignTranslator() {
       translateNode(document.body);
-      designObserver.observe(document.body, { childList: true, subtree: true });
+      designObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["title", "placeholder", "aria-label"],
+      });
     }
 
     if (document.body) {
