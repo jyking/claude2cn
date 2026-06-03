@@ -1,4 +1,13 @@
-{
+// ==UserScript==
+// @name         claude2cn-design
+// @namespace    https://github.com/jyking/claude2cn/
+// @homepageURL  https://github.com/jyking/claude2cn/
+// @author       jyking
+// @version      1.7.0
+// @description  Claude 中文汉化 Design 页面词库规则，配合主插件使用
+// @license      MIT
+// ==/UserScript==
+var DESIGN_TRANSLATIONS = {
   "Add screenshot": "添加截图",
   "Allow pop-ups for this site, then try again": "请允许此网站的弹出窗口，然后重试",
   "Arrow (A)": "箭头 (A)",
@@ -173,4 +182,4 @@
   "just now": "刚刚",
   "m ago": "分钟前",
   "over a week ago": "一周前"
-}
+};

@@ -13,48 +13,70 @@ function sortObjectKeys(obj: any): any {
   return sortedObj;
 }
 
-function buildBlock(varName: string, data: any): string {
+function buildLibraryFile(name: string, description: string, version: string, varName: string, data: any): string {
   const lines = JSON.stringify(data, null, 2).split("\n");
-  return [
-    `  const ${varName} = {`,
-    ...lines.slice(1, -1).map((line) => "  " + line),
-    `  };`,
-  ].join("\n");
+  const dataStr = [`var ${varName} = {`, ...lines.slice(1, -1), `};`].join("\n");
+  return `// ==UserScript==
+// @name         ${name}
+// @namespace    https://github.com/jyking/claude2cn/
+// @homepageURL  https://github.com/jyking/claude2cn/
+// @author       jyking
+// @version      ${version}
+// @description  ${description}
+// @license      MIT
+// ==/UserScript==
+${dataStr}
+`;
 }
 
 const currentDir = "./";
-const templatePath = join(currentDir, "claude2cn.user-temp.js");
-const outputPath = join(currentDir, "claude2cn.user.js");
+const mainPath = join(currentDir, "claude2cn.user.js");
+const transOutputPath = join(currentDir, "claude2cn-translations.user.js");
+const designOutputPath = join(currentDir, "claude2cn-design.user.js");
 
-// 第一步：处理 en2cn.json → TRANSLATIONS
+// 读取并排序 JSON 数据
 console.log("正在读取 en2cn.json...");
 const en2cnData = sortObjectKeys(JSON.parse(readFileSync(join(currentDir, "en2cn.json"), "utf8")));
 writeFileSync(join(currentDir, "en2cn.json"), JSON.stringify(en2cnData, null, 2), "utf8");
 console.log("✅ en2cn.json 排序完成");
 
-// 第二步：处理 design.json → DESIGN_TRANSLATIONS
 console.log("正在读取 design.json...");
 const designData = sortObjectKeys(JSON.parse(readFileSync(join(currentDir, "design.json"), "utf8")));
 writeFileSync(join(currentDir, "design.json"), JSON.stringify(designData, null, 2), "utf8");
 console.log("✅ design.json 排序完成");
 
-// 第三步：读取模板，替换两个占位符，输出 claude2cn.user.js
-console.log("\n正在读取模板...");
-let output = readFileSync(templatePath, "utf8");
-
-const translationsPlaceholder = "  const TRANSLATIONS = {};";
-if (!output.includes(translationsPlaceholder)) {
-  console.error(`错误：找不到占位符: "${translationsPlaceholder}"`);
+// 从 user.js 提取版本号
+const mainContent = readFileSync(mainPath, "utf8");
+const versionMatch = mainContent.match(/@version\s+([\d.\w-]+)/);
+if (!versionMatch) {
+  console.error("错误：找不到 @version");
   process.exit(1);
 }
-output = output.replace(translationsPlaceholder, buildBlock("TRANSLATIONS", en2cnData));
+const version = versionMatch[1];
+console.log(`\n版本号: ${version}`);
 
-const designPlaceholder = "  const DESIGN_TRANSLATIONS = {};";
-if (!output.includes(designPlaceholder)) {
-  console.error(`错误：找不到占位符: "${designPlaceholder}"`);
-  process.exit(1);
+// 生成词库文件
+console.log("\n正在生成词库文件...");
+writeFileSync(
+  transOutputPath,
+  buildLibraryFile("Claude 中文汉化 - 中文词库规则", "Claude 中文汉化词库规则，配合主插件使用", version, "TRANSLATIONS", en2cnData),
+  "utf8",
+);
+console.log("✅ claude2cn-translations.user.js");
+
+writeFileSync(
+  designOutputPath,
+  buildLibraryFile("Claude 中文汉化 - Design 词库规则", "Claude 中文汉化 Design 页面词库规则，配合主插件使用", version, "DESIGN_TRANSLATIONS", designData),
+  "utf8",
+);
+console.log("✅ claude2cn-design.user.js");
+
+// 同步 user.js 中 @require 的版本号
+const updatedMain = mainContent.replace(
+  /(@require\s+https:\/\/raw\.githubusercontent\.com\/jyking\/claude2cn\/main\/[^\s?]+)(\?v[\d.\w-]+)?/g,
+  `$1?v${version}`,
+);
+if (updatedMain !== mainContent) {
+  writeFileSync(mainPath, updatedMain, "utf8");
+  console.log(`\n✅ claude2cn.user.js 中 @require 版本已同步为 v${version}`);
 }
-output = output.replace(designPlaceholder, buildBlock("DESIGN_TRANSLATIONS", designData));
-
-writeFileSync(outputPath, output, "utf8");
-console.log(`\n✅ 完成！已生成 claude2cn.user.js`);
