@@ -3,7 +3,7 @@
 > 为 Claude.ai 提供完整中文界面的油猴脚本，支持用量实时显示、暗色模式、移动端适配。
 
 [![GitHub](https://img.shields.io/badge/GitHub-jyking%2Fclaude2cn-blue?logo=github)](https://github.com/jyking/claude2cn)
-[![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-安装脚本-orange)](https://greasyfork.org/zh-CN/scripts/539526)
+[![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-安装脚本-orange)](https://greasyfork.org/zh-CN/scripts/570390)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
