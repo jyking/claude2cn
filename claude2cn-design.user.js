@@ -3,12 +3,13 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.7.0
+// @version      1.7.2
 // @description  Claude 中文汉化 Design 页面词库规则，配合主插件使用
 // @license      MIT
 // ==/UserScript==
 var DESIGN_TRANSLATIONS = {
   "Add screenshot": "添加截图",
+  "Add to favorites": "收藏",
   "Allow pop-ups for this site, then try again": "请允许此网站的弹出窗口，然后重试",
   "Arrow (A)": "箭头 (A)",
   "Attach code": "附加代码",
@@ -49,6 +50,8 @@ var DESIGN_TRANSLATIONS = {
   "Designs grounded in real context turn out better.": "基于真实背景的设计效果更好。",
   "Disconnect": "断开连接",
   "Disconnecting…": "正在断开…",
+  "Dismiss": "关闭",
+  "Docs": "文档",
   "Don't invent colors, type, spacing, or components not grounded here.": "不得凭空创造颜色、字体、间距或组件。",
   "Download .zip": "下载 .zip",
   "Download zip instead": "改为下载 zip",
@@ -108,6 +111,7 @@ var DESIGN_TRANSLATIONS = {
   "Options": "选项",
   "Org default · no assets yet": "组织默认 · 暂无资源",
   "Other": "其他",
+  "Owner": "所有者",
   "Pan (H)": "平移 (H)",
   "Paste": "粘贴",
   "Pen (P)": "钢笔 (P)",
@@ -173,6 +177,7 @@ var DESIGN_TRANSLATIONS = {
   "Where is this deck headed?": "这套幻灯片的用途是？",
   "Wireframe": "线框图",
   "Your browser blocked the new tab": "浏览器阻止了新标签页",
+  "Your design": "你的设计",
   "Your designs": "你的设计",
   "Your designs and context are attached — please implement": "设计稿和上下文已附加，请开始实现",
   "by Anthropic Labs": "由 Anthropic Labs 出品",
