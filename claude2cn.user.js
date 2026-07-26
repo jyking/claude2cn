@@ -3,12 +3,12 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.7.4
+// @version      1.7.5
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
-// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.7.4
-// @require      https://update.greasyfork.org/scripts/580983/1841852/claude2cn-translations.js?v1.7.4
+// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.7.5
+// @require      https://update.greasyfork.org/scripts/580983/1841852/claude2cn-translations.js?v1.7.5
 // @grant        none
 // @license      MIT
 // @run-at       document-start
@@ -26,13 +26,18 @@
   `;
   document.head.appendChild(style);
 
+  try {
+    localStorage.setItem("spa:i18nSkipEnUsBase", "0");
+  } catch {}
+
   const originalFetch = window.fetch;
   window.fetch = async function (...args) {
     const url = typeof args[0] === "string" ? args[0] : args[0].url;
 
     if (
       !url.includes("/i18n/en-US.json") &&
-      !url.includes("/i18n/statsig/en-US.json")
+      !url.includes("/i18n/statsig/en-US.json") &&
+      !url.includes("/i18n/dynamic/en-US.json")
     ) {
       return originalFetch(...args);
     }

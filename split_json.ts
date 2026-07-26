@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
 import { basename, dirname, extname, join } from "path";
 
 type JsonValue =
@@ -83,12 +83,71 @@ function splitArray(source: JsonValue[], maxLines: number): JsonValue[][] {
   return chunks;
 }
 
+function mergeParts(partsDir: string, outputPath: string): void {
+  const partFiles = readdirSync(partsDir)
+    .filter((fileName) => /\.part\d+\.json$/.test(fileName))
+    .sort((left, right) => {
+      const leftIndex = Number(left.match(/\.part(\d+)\.json$/)?.[1]);
+      const rightIndex = Number(right.match(/\.part(\d+)\.json$/)?.[1]);
+      return leftIndex - rightIndex;
+    });
+
+  if (partFiles.length === 0) {
+    throw new Error(`目录中没有找到分片 JSON 文件: ${partsDir}`);
+  }
+
+  const parts = partFiles.map((fileName) => {
+    const filePath = join(partsDir, fileName);
+    return JSON.parse(readFileSync(filePath, "utf8")) as JsonValue;
+  });
+
+  const firstPart = parts[0];
+  let merged: JsonValue;
+
+  if (Array.isArray(firstPart)) {
+    if (!parts.every((part) => Array.isArray(part))) {
+      throw new Error("分片文件类型不一致，无法合并");
+    }
+    merged = parts.flatMap((part) => part as JsonValue[]);
+  } else if (firstPart !== null && typeof firstPart === "object") {
+    if (!parts.every((part) => part !== null && typeof part === "object" && !Array.isArray(part))) {
+      throw new Error("分片文件类型不一致，无法合并");
+    }
+    merged = Object.assign({}, ...parts);
+  } else {
+    throw new Error("分片内容必须是顶层 object 或 array");
+  }
+
+  writeFileSync(outputPath, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
+  console.log(`已合并: ${outputPath}`);
+}
+
 function main() {
-  const inputPath = process.argv[2];
+  const command = process.argv[2];
+
+  if (command === "merge") {
+    const partsDir = process.argv[3];
+    const outputPath = process.argv[4];
+    if (!partsDir || !outputPath) {
+      console.error("用法: bun run split_json.ts merge <分片目录> <输出文件路径>");
+      process.exit(1);
+    }
+    try {
+      mergeParts(partsDir, outputPath);
+    } catch (error) {
+      console.error(`错误: 无法合并分片目录 ${partsDir}`);
+      console.error(error);
+      process.exit(1);
+    }
+    return;
+  }
+
+  const inputPath = command;
   const maxLines = Number(process.argv[3] ?? "500");
 
   if (!inputPath) {
     console.error("用法: bun run split_json.ts <json文件路径> [每片最大行数]");
+    console.error("或:   bun run split_json.ts merge <分片目录> <输出文件路径>");
     process.exit(1);
   }
 
