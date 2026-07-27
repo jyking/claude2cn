@@ -3,12 +3,12 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.7.6
+// @version      1.7.7
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
-// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.7.6
-// @require      https://update.greasyfork.org/scripts/580983/1841852/claude2cn-translations.js?v1.7.6
+// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.7.7
+// @require      https://update.greasyfork.org/scripts/580983/1841852/claude2cn-translations.js?v1.7.7
 // @grant        none
 // @license      MIT
 // @run-at       document-start
@@ -43,20 +43,34 @@
     }
 
     const response = await originalFetch(...args);
-    const json = await response.json();
 
-    for (const key of Object.keys(json)) {
-      const val = json[key];
-      if (typeof val === "string" && TRANSLATIONS[val]) {
-        json[key] = TRANSLATIONS[val];
+    try {
+      const json = await response.json();
+      const dict = typeof TRANSLATIONS !== "undefined" ? TRANSLATIONS : {};
+      for (const key of Object.keys(json)) {
+        const val = json[key];
+        if (typeof val === "string" && dict[val]) {
+          json[key] = dict[val];
+        }
       }
-    }
 
-    return new Response(JSON.stringify(json), {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
+      // 只保留 content-type，丢弃原始的 content-encoding / content-length，
+      // 否则新 body（未压缩明文）会按旧编码解码失败，导致页面回退英文。
+      const headers = new Headers();
+      headers.set(
+        "content-type",
+        response.headers.get("content-type") || "application/json"
+      );
+
+      return new Response(JSON.stringify(json), {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    } catch {
+      // 翻译失败时原样返回，避免页面拿到 reject 回退英文
+      return response;
+    }
   };
 
   const ClaudeUsageWidget = (() => {
@@ -817,6 +831,93 @@
     initDesignTranslator();
   } else {
     document.addEventListener("DOMContentLoaded", initDesignTranslator);
+  }
+
+  // 通用 DOM 翻译兜底：fetch hook 拦截 i18n 受时序/缓存影响，部分文案会漏。
+  // 这里在文本进入 DOM 后再用主词表查一次，不依赖 fetch 时序。
+  // /design 路径已由 designObserver 负责，此处跳过避免重复处理。
+  const UI_SKIP_TAG = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, SELECT: 1 };
+  const UI_MAX_LEN = 200; // 覆盖 UI 段落文案（最长约 150+ 字符）；超长对话内容靠精确匹配稀有性自然跳过
+  function uiDictLookup(t) {
+    if (typeof TRANSLATIONS !== "undefined" && TRANSLATIONS[t]) return TRANSLATIONS[t];
+    if (typeof DESIGN_TRANSLATIONS !== "undefined" && DESIGN_TRANSLATIONS[t]) return DESIGN_TRANSLATIONS[t];
+    return undefined;
+  }
+  function uiSkipEl(el) {
+    return !el || UI_SKIP_TAG[el.tagName] || el.isContentEditable === true;
+  }
+  function translateUiAttrs(el) {
+    for (const a of ["title", "placeholder", "aria-label"]) {
+      const v = el.getAttribute(a);
+      const t = v && v.trim();
+      if (t && t.length <= UI_MAX_LEN && uiDictLookup(t)) {
+        el.setAttribute(a, uiDictLookup(t));
+      }
+    }
+  }
+  function translateUiNode(node) {
+    if (!node) return;
+    if (node.nodeType === Node.TEXT_NODE) {
+      const raw = node.nodeValue;
+      const t = raw && raw.trim();
+      if (t && t.length <= UI_MAX_LEN && uiDictLookup(t)) {
+        node.nodeValue = raw.replace(t, uiDictLookup(t));
+      }
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE || uiSkipEl(node)) return;
+    translateUiAttrs(node);
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
+      acceptNode(n) {
+        const p = n.parentElement;
+        if (uiSkipEl(p)) return NodeFilter.FILTER_REJECT;
+        const raw = n.nodeValue;
+        const t = raw && raw.trim();
+        if (t && t.length <= UI_MAX_LEN && uiDictLookup(t)) return NodeFilter.FILTER_ACCEPT;
+        return NodeFilter.FILTER_SKIP;
+      },
+    });
+    let n;
+    while ((n = walker.nextNode())) {
+      const raw = n.nodeValue;
+      const t = raw.trim();
+      if (uiDictLookup(t)) n.nodeValue = raw.replace(t, uiDictLookup(t));
+    }
+  }
+  const uiObserver = new MutationObserver((mutations) => {
+    if (location.pathname.startsWith("/design")) return;
+    for (const m of mutations) {
+      if (m.type === "attributes") {
+        if (m.target.nodeType === Node.ELEMENT_NODE && !uiSkipEl(m.target)) {
+          translateUiAttrs(m.target);
+        }
+      } else {
+        for (const node of m.addedNodes) {
+          if (
+            node.nodeType === Node.TEXT_NODE ||
+            (node.nodeType === Node.ELEMENT_NODE && !uiSkipEl(node))
+          ) {
+            translateUiNode(node);
+          }
+        }
+      }
+    }
+  });
+  function initUiTranslator() {
+    if (!location.pathname.startsWith("/design")) {
+      translateUiNode(document.body);
+    }
+    uiObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["title", "placeholder", "aria-label"],
+    });
+  }
+  if (document.body) {
+    initUiTranslator();
+  } else {
+    document.addEventListener("DOMContentLoaded", initUiTranslator);
   }
 
 })();
