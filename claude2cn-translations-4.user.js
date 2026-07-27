@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         claude2cn-translations-extra
+// @name         claude2cn-translations-4
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
