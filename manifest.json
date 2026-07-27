@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Claude 中文汉化 用量显示",
+  "version": "1.7.7",
+  "description": "Claude 中文汉化 ai翻译,剩余用量显示",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": [
+        "claude2cn-translations-1.user.js",
+        "claude2cn-translations-2.user.js",
+        "claude2cn-translations-3.user.js",
+        "claude2cn-translations-4.user.js",
+        "claude2cn-design.user.js",
+        "claude2cn.user.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    }
+  ]
+}

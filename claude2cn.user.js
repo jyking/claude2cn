@@ -8,7 +8,10 @@
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
 // @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.7.7
-// @require      https://update.greasyfork.org/scripts/580983/1841852/claude2cn-translations.js?v1.7.7
+// @require      https://raw.githubusercontent.com/jyking/claude2cn/main/claude2cn-translations-1.user.js?v1.7.7
+// @require      https://raw.githubusercontent.com/jyking/claude2cn/main/claude2cn-translations-2.user.js?v1.7.7
+// @require      https://raw.githubusercontent.com/jyking/claude2cn/main/claude2cn-translations-3.user.js?v1.7.7
+// @require      https://raw.githubusercontent.com/jyking/claude2cn/main/claude2cn-translations-4.user.js?v1.7.7
 // @grant        none
 // @license      MIT
 // @run-at       document-start
@@ -24,7 +27,8 @@
       --font-anthropic-serif: "Anthropic Serif", Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", "Source Hans Serif CN", "Songti SC", SimSun, serif;
     }
   `;
-  document.head.appendChild(style);
+  // document_start 时 <head> 可能尚未创建,回退到 <html> 以免抛错中断整个 IIFE
+  (document.head || document.documentElement).appendChild(style);
 
   try {
     localStorage.setItem("spa:i18nSkipEnUsBase", "0");
@@ -72,6 +76,69 @@
       return response;
     }
   };
+
+  // ── 远程词库兜底（仅浏览器扩展环境）──
+  // 油猴用户由 GreasyFork/GitHub raw @require 自动更新；扩展走商店审核有延迟，
+  // 故在扩展中后台拉取最新 3 个分片 + extra 覆盖层，内容有变则热替换全局 TRANSLATIONS。
+  // 打包词库始终作为离线基线，远程失败不影响使用。
+  // fetch hook / DOM 翻译均按需读取全局 TRANSLATIONS，热替换后下一次调用即生效。
+  if (typeof GM_info === "undefined") {
+    (async () => {
+      try {
+        const META_KEY = "claude2cn_remote_meta_v1";
+        const TTL_MS = 6 * 60 * 60 * 1000; // 每 6h 至多检查一次
+        const BASE =
+          "https://raw.githubusercontent.com/jyking/claude2cn/main/";
+        const REMOTE_FILES = [
+          "claude2cn-translations-1.user.js",
+          "claude2cn-translations-2.user.js",
+          "claude2cn-translations-3.user.js",
+          "claude2cn-translations-4.user.js",
+        ];
+
+        let meta = {};
+        try {
+          meta = JSON.parse(localStorage.getItem(META_KEY) || "{}");
+        } catch {}
+        if (Date.now() - (meta.checkedAt || 0) < TTL_MS) return;
+
+        // 并行拉取 4 个文件；单个失败用空串占位（eval 空串无副作用，打包基线仍生效）
+        const texts = await Promise.all(
+          REMOTE_FILES.map((f) =>
+            originalFetch(BASE + f, { cache: "no-cache" })
+              .then((r) => (r.ok ? r.text() : ""))
+              .catch(() => "")
+          )
+        );
+        const combined = texts.join("\n;\n");
+
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(combined)
+        );
+        const hash = Array.from(new Uint8Array(digest))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        try {
+          localStorage.setItem(
+            META_KEY,
+            JSON.stringify({ checkedAt: Date.now(), hash })
+          );
+        } catch {}
+
+        if (hash === meta.hash) return; // 内容未变，跳过 eval
+
+        // 间接 eval = 全局作用域；4 个分片均为
+        // `var TRANSLATIONS = typeof...; Object.assign(TRANSLATIONS, {...});`
+        // 累加执行后直接更新全局对象，fetch hook / DOM 翻译下一次调用即生效。
+        (0, eval)(combined);
+        console.info(`[claude2cn] 词库已热更新（${hash.slice(0, 8)}）`);
+      } catch (e) {
+        console.warn("[claude2cn] 远程词库检查失败，使用打包词库", e);
+      }
+    })();
+  }
 
   const ClaudeUsageWidget = (() => {
     "use strict";
