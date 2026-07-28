@@ -133,6 +133,7 @@
         // `var TRANSLATIONS = typeof...; Object.assign(TRANSLATIONS, {...});`
         // 累加执行后直接更新全局对象，fetch hook / DOM 翻译下一次调用即生效。
         (0, eval)(combined);
+        invalidateUiTemplateCache();
         console.info(`[claude2cn] 词库已热更新（${hash.slice(0, 8)}）`);
       } catch (e) {
         console.warn("[claude2cn] 远程词库检查失败，使用打包词库", e);
@@ -905,9 +906,99 @@
   // /design 路径已由 designObserver 负责，此处跳过避免重复处理。
   const UI_SKIP_TAG = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, SELECT: 1 };
   const UI_MAX_LEN = 200; // 覆盖 UI 段落文案（最长约 150+ 字符）；超长对话内容靠精确匹配稀有性自然跳过
+  let uiTemplateRoot = null;
+
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function invalidateUiTemplateCache() {
+    uiTemplateRoot = null;
+  }
+
+  function getUiDictionaries() {
+    return [
+      typeof TRANSLATIONS !== "undefined" ? TRANSLATIONS : null,
+      typeof DESIGN_TRANSLATIONS !== "undefined" ? DESIGN_TRANSLATIONS : null,
+    ].filter(Boolean);
+  }
+
+  function createUiTemplateNode() {
+    return { children: new Map(), entries: [] };
+  }
+
+  function buildUiTemplateIndex() {
+    uiTemplateRoot = createUiTemplateNode();
+    for (const dict of getUiDictionaries()) {
+      for (const [source, translated] of Object.entries(dict)) {
+        if (typeof translated !== "string" || !source.includes("{")) continue;
+
+        const names = [];
+        const firstPlaceholder = source.search(/\{[A-Za-z_][A-Za-z0-9_-]*\}/);
+        const literalPrefix = firstPlaceholder === -1 ? "" : source.slice(0, firstPlaceholder);
+        // 变量开头的模板无法按文本缩小候选集。让 i18n fetch hook 处理它们，
+        // 避免每个未命中文本都在主线程尝试大量正则。
+        if (!literalPrefix) continue;
+        const pattern = source
+          .split(/(\{[A-Za-z_][A-Za-z0-9_-]*\})/g)
+          .map((part) => {
+            const match = part.match(/^\{([A-Za-z_][A-Za-z0-9_-]*)\}$/);
+            if (match) {
+              names.push(match[1]);
+              return "(.+?)";
+            }
+            return escapeRegExp(part);
+          })
+          .join("");
+
+        const entry = {
+          regex: new RegExp(`^${pattern}$`),
+          names,
+          translated,
+        };
+        let node = uiTemplateRoot;
+        for (const char of literalPrefix) {
+          let child = node.children.get(char);
+          if (!child) {
+            child = createUiTemplateNode();
+            node.children.set(char, child);
+          }
+          node = child;
+        }
+        node.entries.push(entry);
+      }
+    }
+  }
+
+  function matchUiTemplateEntries(entries, t) {
+    for (const entry of entries) {
+      const match = entry.regex.exec(t);
+      if (!match) continue;
+
+      return entry.translated.replace(
+        /\{([A-Za-z_][A-Za-z0-9_-]*)\}/g,
+        (placeholder, name) => {
+          const index = entry.names.indexOf(name);
+          return index === -1 ? placeholder : match[index + 1];
+        },
+      );
+    }
+    return undefined;
+  }
+
   function uiDictLookup(t) {
     if (typeof TRANSLATIONS !== "undefined" && TRANSLATIONS[t]) return TRANSLATIONS[t];
     if (typeof DESIGN_TRANSLATIONS !== "undefined" && DESIGN_TRANSLATIONS[t]) return DESIGN_TRANSLATIONS[t];
+
+    if (uiTemplateRoot === null) buildUiTemplateIndex();
+    let node = uiTemplateRoot;
+    for (const char of t) {
+      node = node.children.get(char);
+      if (!node) break;
+      const translated = matchUiTemplateEntries(node.entries, t);
+      if (translated) return translated;
+    }
+
     return undefined;
   }
   function uiSkipEl(el) {
@@ -917,8 +1008,9 @@
     for (const a of ["title", "placeholder", "aria-label"]) {
       const v = el.getAttribute(a);
       const t = v && v.trim();
-      if (t && t.length <= UI_MAX_LEN && uiDictLookup(t)) {
-        el.setAttribute(a, uiDictLookup(t));
+      const translated = t && t.length <= UI_MAX_LEN && uiDictLookup(t);
+      if (translated) {
+        el.setAttribute(a, translated);
       }
     }
   }
@@ -927,8 +1019,9 @@
     if (node.nodeType === Node.TEXT_NODE) {
       const raw = node.nodeValue;
       const t = raw && raw.trim();
-      if (t && t.length <= UI_MAX_LEN && uiDictLookup(t)) {
-        node.nodeValue = raw.replace(t, uiDictLookup(t));
+      const translated = t && t.length <= UI_MAX_LEN && uiDictLookup(t);
+      if (translated) {
+        node.nodeValue = raw.replace(t, translated);
       }
       return;
     }
@@ -940,15 +1033,17 @@
         if (uiSkipEl(p)) return NodeFilter.FILTER_REJECT;
         const raw = n.nodeValue;
         const t = raw && raw.trim();
-        if (t && t.length <= UI_MAX_LEN && uiDictLookup(t)) return NodeFilter.FILTER_ACCEPT;
-        return NodeFilter.FILTER_SKIP;
+        return t && t.length <= UI_MAX_LEN
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_SKIP;
       },
     });
     let n;
     while ((n = walker.nextNode())) {
       const raw = n.nodeValue;
       const t = raw.trim();
-      if (uiDictLookup(t)) n.nodeValue = raw.replace(t, uiDictLookup(t));
+      const translated = uiDictLookup(t);
+      if (translated) n.nodeValue = raw.replace(t, translated);
     }
   }
   const uiObserver = new MutationObserver((mutations) => {
