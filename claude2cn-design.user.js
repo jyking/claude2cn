@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.7.8
+// @version      1.7.9
 // @description  Claude 中文汉化 Design 页面词库规则，配合主插件使用
 // @license      MIT
 // ==/UserScript==
