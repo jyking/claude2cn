@@ -26,6 +26,10 @@
     :root {
       --font-anthropic-serif: "Anthropic Serif", Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", "Source Hans Serif CN", "Songti SC", SimSun, serif;
     }
+
+    .tiptap p.is-empty.is-editor-empty[data-placeholder="Write a message…"]::before {
+      content: "输入消息…" !important;
+    }
   `;
   // document_start 时 <head> 可能尚未创建,回退到 <html> 以免抛错中断整个 IIFE
   (document.head || document.documentElement).appendChild(style);
