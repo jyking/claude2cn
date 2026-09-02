@@ -75,7 +75,7 @@ DevTools Console 应出现:`✅ Claude 用量监控小部件已启动`
 ### 打包上架(Microsoft Edge Add-ons / Chrome Web Store)
 
 ```sh
-zip -r claude2cn-ext-v1.8.0.zip manifest.json claude2cn.user.js claude2cn-design.user.js \
+zip -r claude2cn-ext-v1.8.1.zip manifest.json claude2cn.user.js claude2cn-design.user.js \
   claude2cn-translations-1.user.js claude2cn-translations-2.user.js \
   claude2cn-translations-3.user.js claude2cn-translations-4.user.js icons
 ```
