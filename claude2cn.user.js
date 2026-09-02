@@ -922,6 +922,21 @@
   // 这里在文本进入 DOM 后再用主词表查一次，不依赖 fetch 时序。
   // /design 路径已由 designObserver 负责，此处跳过避免重复处理。
   const UI_SKIP_TAG = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, SELECT: 1 };
+  // 对话区(用户消息 / 助手回复)与输入框不翻译,保持用户内容原样
+  const UI_SKIP_SEL = [
+    '[data-testid="user-message"]',
+    '[data-testid="human-message"]',
+    '[data-testid="message-human"]',
+    '.font-user-message',
+    '[data-testid="assistant-message"]',
+    '[data-testid="ai-message"]',
+    '[data-testid="message-assistant"]',
+    '.font-claude-message',
+    '.font-claude-response',
+    '[data-testid="composer"]',
+    '[contenteditable="true"]',
+    '[contenteditable="plaintext-only"]',
+  ].join(",");
   const UI_MAX_LEN = 200; // 覆盖 UI 段落文案（最长约 150+ 字符）；超长对话内容靠精确匹配稀有性自然跳过
   let uiTemplateRoot = null;
 
@@ -1019,7 +1034,8 @@
     return undefined;
   }
   function uiSkipEl(el) {
-    return !el || UI_SKIP_TAG[el.tagName] || el.isContentEditable === true;
+    if (!el || UI_SKIP_TAG[el.tagName] || el.isContentEditable === true) return true;
+    return !!el.closest(UI_SKIP_SEL);
   }
   function translateUiAttrs(el) {
     for (const a of ["title", "placeholder", "aria-label"]) {
@@ -1034,6 +1050,8 @@
   function translateUiNode(node) {
     if (!node) return;
     if (node.nodeType === Node.TEXT_NODE) {
+      // 直接新增的文本节点(如输入框打字插入)也要检查父元素,避免用户内容被翻译
+      if (uiSkipEl(node.parentElement)) return;
       const raw = node.nodeValue;
       const t = raw && raw.trim();
       const translated = t && t.length <= UI_MAX_LEN && uiDictLookup(t);
