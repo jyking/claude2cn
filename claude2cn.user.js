@@ -3,15 +3,15 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.7.9
+// @version      1.8.0
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
-// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.7.9
-// @require      https://update.greasyfork.org/scripts/588732/1886288/claude2cn-translations-1.js?v1.7.9
-// @require      https://update.greasyfork.org/scripts/588733/1886289/claude2cn-translations-2.js?v1.7.9
-// @require      https://update.greasyfork.org/scripts/588734/1886290/claude2cn-translations-3.js?v1.7.9
-// @require      https://update.greasyfork.org/scripts/588736/1886294/claude2cn-translations-4.js?v1.7.9
+// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.8.0
+// @require      https://update.greasyfork.org/scripts/588732/1886288/claude2cn-translations-1.js?v1.8.0
+// @require      https://update.greasyfork.org/scripts/588733/1886289/claude2cn-translations-2.js?v1.8.0
+// @require      https://update.greasyfork.org/scripts/588734/1886290/claude2cn-translations-3.js?v1.8.0
+// @require      https://update.greasyfork.org/scripts/588736/1886294/claude2cn-translations-4.js?v1.8.0
 // @grant        none
 // @license      MIT
 // @run-at       document-start
@@ -156,6 +156,7 @@
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
     let savedPosition = { left: null, right: 4, top: 50, isRight: true }; // 默认右上角
+    let usageHidden = false; // 账户不支持用量查询(如免费版)时隐藏面板
 
     let usageData = {
       fiveHour: { utilization: 0, resets_at: null },
@@ -513,6 +514,7 @@
     }
 
     async function fetchUsage() {
+      if (usageHidden) return;
       if (!orgId) {
         await discoverOrgId();
         if (!orgId) return;
@@ -520,8 +522,6 @@
       usageData.fetchError = null;
       const endpoints = [
         `https://claude.ai/api/organizations/${orgId}/usage`,
-        `https://claude.ai/api/organizations/${orgId}/rate_limit_status`,
-        `https://claude.ai/api/organizations/${orgId}/limits`,
       ];
       for (const url of endpoints) {
         try {
@@ -532,6 +532,19 @@
           if (res.status === 404) continue;
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
+          // 免费账户:接口返回全 null 且 member_dashboard_available 为 false,不再展示用量
+          if (
+            data &&
+            typeof data === "object" &&
+            data.five_hour == null &&
+            data.seven_day == null &&
+            !Array.isArray(data.rate_limits)
+          ) {
+            usageHidden = true;
+            if (panel) panel.style.display = "none";
+            console.log("[Claude用量] 该账户不支持用量查询,已隐藏面板");
+            return;
+          }
           if (parseUsageData(data)) {
             usageData.lastFetch = Date.now();
             renderPanel();
