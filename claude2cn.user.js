@@ -914,7 +914,8 @@
   // 通用 DOM 翻译兜底：fetch hook 拦截 i18n 受时序/缓存影响，部分文案会漏。
   // 这里在文本进入 DOM 后再用主词表查一次，不依赖 fetch 时序。
   // /design 路径已由 designObserver 负责，此处跳过避免重复处理。
-  const UI_SKIP_TAG = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, SELECT: 1 };
+  // PRE/CODE(代码块)与 SVG 不翻译;SVG 根元素 tagName 为小写 "svg",统一 toUpperCase 后查表
+  const UI_SKIP_TAG = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, SELECT: 1, PRE: 1, CODE: 1, SVG: 1 };
   // 对话区(用户消息 / 助手回复)与输入框不翻译,保持用户内容原样
   const UI_SKIP_SEL = [
     '[data-testid="user-message"]',
@@ -1027,7 +1028,9 @@
     return undefined;
   }
   function uiSkipEl(el) {
-    if (!el || UI_SKIP_TAG[el.tagName] || el.isContentEditable === true) return true;
+    if (!el || UI_SKIP_TAG[el.tagName.toUpperCase()] || el.isContentEditable === true) return true;
+    // 语法高亮的 token 包在 span 里、SVG 文本在 text/tspan 里,tagName 查表罩不住嵌套结构
+    if (el.closest("pre, code, svg")) return true;
     return !!el.closest(UI_SKIP_SEL);
   }
   function translateUiAttrs(el) {
@@ -1074,24 +1077,85 @@
       if (translated) n.nodeValue = raw.replace(t, translated);
     }
   }
+  // 入队 + 空闲分批:Claude 回复逐 token 流式写入 DOM,短时间内触发成百上千条
+  // mutation,同步逐条跑 TreeWalker + 字典匹配会长时间占满主线程,低端设备直接卡死。
+  // 改为收集进队列,requestIdleCallback 空闲时每次最多处理一小段时间,处理不完
+  // 留给下一次空闲;fetch hook 与用量组件不经过此队列,不受影响。
+  const uiQueue = [];
+  let uiIdleScheduled = false;
+  // 入队时标记已处理,跳过重复扫描;其后续新增的子节点会各自作为 mutation 入队,不会漏翻。
+  // 任务因节点离线被丢弃时会撤销标记(runUiQueue),重新挂载后可再次入队
+  const uiProcessedEls = new WeakSet();
+  const UI_IDLE_SLICE_MS = 12; // 每次空闲切片的处理时长上限
+  const UI_IDLE_TIMEOUT_MS = 500; // 队列积压时最迟多久强制处理一帧
+  const UI_FALLBACK_INTERVAL_MS = 30; // 无 requestIdleCallback 环境的轮询间隔
+
+  function runUiQueue(deadline) {
+    uiIdleScheduled = false;
+    const start = performance.now();
+    // 空闲不足时按 deadline 剩余时间收缩切片;timeout 强制触发时(didTimeout)用满 12ms
+    let budget = UI_IDLE_SLICE_MS;
+    if (deadline && typeof deadline.timeRemaining === "function" && !deadline.didTimeout) {
+      budget = Math.min(deadline.timeRemaining(), UI_IDLE_SLICE_MS);
+    }
+    let i = 0;
+    while (i < uiQueue.length && performance.now() - start < budget) {
+      const job = uiQueue[i++];
+      // 流式渲染中节点可能已被 React 摘下,离线任务丢弃;
+      // 同时撤销已处理标记,节点重新挂载时还能再次入队,避免永久漏翻
+      if (!job.node.isConnected) {
+        uiProcessedEls.delete(job.node);
+        continue;
+      }
+      try {
+        if (job.attr) {
+          if (!uiSkipEl(job.node)) translateUiAttrs(job.node);
+        } else {
+          translateUiNode(job.node);
+        }
+      } catch (e) {
+        // 单个任务失败只损失自身,不能让异常中断循环导致整个队列停摆
+        console.warn("claude2cn: UI 翻译任务失败", e);
+      }
+    }
+    // 用游标消费、一次性截断;shift 逐个出队在积压时是 O(n^2)
+    uiQueue.splice(0, i);
+    if (uiQueue.length) scheduleUiQueue();
+  }
+
+  function scheduleUiQueue() {
+    if (uiIdleScheduled) return;
+    uiIdleScheduled = true;
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(runUiQueue, { timeout: UI_IDLE_TIMEOUT_MS });
+    } else {
+      setTimeout(runUiQueue, UI_FALLBACK_INTERVAL_MS);
+    }
+  }
+
   const uiObserver = new MutationObserver((mutations) => {
     if (location.pathname.startsWith("/design")) return;
     for (const m of mutations) {
+      // attribute mutation 的 target 按规范必为 Element,无需再判 nodeType
       if (m.type === "attributes") {
-        if (m.target.nodeType === Node.ELEMENT_NODE && !uiSkipEl(m.target)) {
-          translateUiAttrs(m.target);
-        }
+        uiQueue.push({ node: m.target, attr: true });
       } else {
         for (const node of m.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (uiProcessedEls.has(node)) continue;
+            uiProcessedEls.add(node);
+          }
           if (
             node.nodeType === Node.TEXT_NODE ||
-            (node.nodeType === Node.ELEMENT_NODE && !uiSkipEl(node))
+            node.nodeType === Node.ELEMENT_NODE
           ) {
-            translateUiNode(node);
+            uiQueue.push({ node });
           }
         }
       }
     }
+    // scheduleUiQueue 自身有 uiIdleScheduled 幂等保护,直接按队列长度调度即可
+    if (uiQueue.length) scheduleUiQueue();
   });
   function initUiTranslator() {
     if (!location.pathname.startsWith("/design")) {
