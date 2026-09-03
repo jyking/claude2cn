@@ -3,15 +3,15 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.8.2
+// @version      1.8.3
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
-// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.8.2
-// @require      https://update.greasyfork.org/scripts/588732/1886288/claude2cn-translations-1.js?v1.8.2
-// @require      https://update.greasyfork.org/scripts/588733/1886289/claude2cn-translations-2.js?v1.8.2
-// @require      https://update.greasyfork.org/scripts/588734/1886290/claude2cn-translations-3.js?v1.8.2
-// @require      https://update.greasyfork.org/scripts/588736/1886294/claude2cn-translations-4.js?v1.8.2
+// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.8.3
+// @require      https://update.greasyfork.org/scripts/588732/1886288/claude2cn-translations-1.js?v1.8.3
+// @require      https://update.greasyfork.org/scripts/588733/1886289/claude2cn-translations-2.js?v1.8.3
+// @require      https://update.greasyfork.org/scripts/588734/1886290/claude2cn-translations-3.js?v1.8.3
+// @require      https://update.greasyfork.org/scripts/588736/1886294/claude2cn-translations-4.js?v1.8.3
 // @grant        none
 // @license      MIT
 // @run-at       document-start
@@ -44,6 +44,7 @@
 
     if (
       !url.includes("/i18n/en-US.json") &&
+      !url.includes("/i18n/en-US.overrides.json") &&
       !url.includes("/i18n/statsig/en-US.json") &&
       !url.includes("/i18n/dynamic/en-US.json")
     ) {

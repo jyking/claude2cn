@@ -3,7 +3,7 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.8.2
+// @version      1.8.3
 // @description  Claude 中文汉化词库（2/3）
 // @license      MIT
 // ==/UserScript==
