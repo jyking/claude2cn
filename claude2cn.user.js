@@ -3,15 +3,15 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.8.1
+// @version      1.8.2
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
-// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.8.1
-// @require      https://update.greasyfork.org/scripts/588732/1886288/claude2cn-translations-1.js?v1.8.1
-// @require      https://update.greasyfork.org/scripts/588733/1886289/claude2cn-translations-2.js?v1.8.1
-// @require      https://update.greasyfork.org/scripts/588734/1886290/claude2cn-translations-3.js?v1.8.1
-// @require      https://update.greasyfork.org/scripts/588736/1886294/claude2cn-translations-4.js?v1.8.1
+// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.8.2
+// @require      https://update.greasyfork.org/scripts/588732/1886288/claude2cn-translations-1.js?v1.8.2
+// @require      https://update.greasyfork.org/scripts/588733/1886289/claude2cn-translations-2.js?v1.8.2
+// @require      https://update.greasyfork.org/scripts/588734/1886290/claude2cn-translations-3.js?v1.8.2
+// @require      https://update.greasyfork.org/scripts/588736/1886294/claude2cn-translations-4.js?v1.8.2
 // @grant        none
 // @license      MIT
 // @run-at       document-start
@@ -353,21 +353,14 @@
         !document.getElementById("claude-usage-panel-bottom")
       )
         return;
+
+      // 只有成功解析到用量数据才显示面板,其余情况一律隐藏
+      if (!usageData.lastFetch || usageData.fetchError) {
+        panel.style.display = "none";
+        return;
+      }
+      panel.style.display = "";
       applyTheme();
-
-      if (!orgId) {
-        panel.innerHTML = `
-        <div style="font-size:10px;opacity:0.6;text-align:center;">
-          ⏳
-        </div>`;
-        return;
-      }
-
-      if (usageData.fetchError) {
-        panel.innerHTML = `
-        <div style="font-size:10px;opacity:0.6;text-align:center;">⚠️</div>`;
-        return;
-      }
 
       const fh = usageData.fiveHour;
       const sd = usageData.sevenDay;
@@ -532,7 +525,7 @@
           if (res.status === 404) continue;
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
-          // 免费账户:接口返回全 null 且 member_dashboard_available 为 false,不再展示用量
+          // 免费账户:接口返回全 null,用量不可用,隐藏面板并停止后续请求
           if (
             data &&
             typeof data === "object" &&
