@@ -3,15 +3,16 @@
 // @namespace    https://github.com/jyking/claude2cn/
 // @homepageURL  https://github.com/jyking/claude2cn/
 // @author       jyking
-// @version      1.8.3
+// @version      1.8.4
 // @description  Claude 中文汉化 ai翻译 10000行翻译, 剩余用量显示
 // @icon         https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg
 // @match        https://claude.ai/*
-// @require      https://update.greasyfork.org/scripts/580982/1841849/claude2cn-design.js?v1.8.3
-// @require      https://update.greasyfork.org/scripts/588732/1886288/claude2cn-translations-1.js?v1.8.3
-// @require      https://update.greasyfork.org/scripts/588733/1886289/claude2cn-translations-2.js?v1.8.3
-// @require      https://update.greasyfork.org/scripts/588734/1886290/claude2cn-translations-3.js?v1.8.3
-// @require      https://update.greasyfork.org/scripts/588736/1886294/claude2cn-translations-4.js?v1.8.3
+// 不带代码版本 ID:始终拉取 GreasyFork 最新词库,发版时只需更新 ?v 查询串触发重新下载
+// @require      https://update.greasyfork.org/scripts/580982/claude2cn-design.js?v1.8.4
+// @require      https://update.greasyfork.org/scripts/588732/claude2cn-translations-1.js?v1.8.4
+// @require      https://update.greasyfork.org/scripts/588733/claude2cn-translations-2.js?v1.8.4
+// @require      https://update.greasyfork.org/scripts/588734/claude2cn-translations-3.js?v1.8.4
+// @require      https://update.greasyfork.org/scripts/588736/claude2cn-translations-4.js?v1.8.4
 // @grant        none
 // @license      MIT
 // @run-at       document-start
@@ -1078,6 +1079,37 @@
       if (translated) n.nodeValue = raw.replace(t, translated);
     }
   }
+  // 小子树(菜单/弹层等)同步翻译的文本节点数上限;超过则交给空闲队列分批
+  const UI_SYNC_TEXT_BUDGET = 64;
+  function uiSubtreeIsSmall(el) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode(n) {
+        return uiSkipEl(n.parentElement)
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    let count = 0;
+    while (walker.nextNode()) {
+      if (++count > UI_SYNC_TEXT_BUDGET) return false;
+    }
+    return true;
+  }
+  // 大子树不能作为单个 job 入队:translateUiNode 开走后会同步走完整棵树,
+  // job 之间的切片预算罩不住,整页渲染时会产生秒级长任务,期间点击全部排队
+  // (INP 输入延迟暴涨)。按层级向下拆到小子树粒度再入队,预算才能生效。
+  function enqueueSubtreeJobs(root) {
+    const stack = [root];
+    while (stack.length) {
+      const el = stack.pop();
+      // 无元素子节点时叶子级别,剩余的只是少量文本节点,单 job 足够小
+      if (uiSubtreeIsSmall(el) || !el.firstElementChild) {
+        uiQueue.push({ node: el });
+      } else {
+        for (const child of el.children) stack.push(child);
+      }
+    }
+  }
   // 入队 + 空闲分批:Claude 回复逐 token 流式写入 DOM,短时间内触发成百上千条
   // mutation,同步逐条跑 TreeWalker + 字典匹配会长时间占满主线程,低端设备直接卡死。
   // 改为收集进队列,requestIdleCallback 空闲时每次最多处理一小段时间,处理不完
@@ -1145,11 +1177,15 @@
           if (node.nodeType === Node.ELEMENT_NODE) {
             if (uiProcessedEls.has(node)) continue;
             uiProcessedEls.add(node);
+            // 菜单/弹层等小子树同步翻译,消除弹窗先英文后中文的数百毫秒延迟
+            if (uiSubtreeIsSmall(node)) {
+              translateUiNode(node);
+            } else {
+              enqueueSubtreeJobs(node);
+            }
+            continue;
           }
-          if (
-            node.nodeType === Node.TEXT_NODE ||
-            node.nodeType === Node.ELEMENT_NODE
-          ) {
+          if (node.nodeType === Node.TEXT_NODE) {
             uiQueue.push({ node });
           }
         }
@@ -1160,7 +1196,9 @@
   });
   function initUiTranslator() {
     if (!location.pathname.startsWith("/design")) {
-      translateUiNode(document.body);
+      // 首翻整页不再一次性同步走完 body(秒级长任务会卡住所有交互),
+      // 拆分后交给空闲队列分批处理
+      enqueueSubtreeJobs(document.body);
     }
     uiObserver.observe(document.body, {
       childList: true,
@@ -1168,6 +1206,7 @@
       attributes: true,
       attributeFilter: ["title", "placeholder", "aria-label"],
     });
+    if (uiQueue.length) scheduleUiQueue();
   }
   if (document.body) {
     initUiTranslator();
